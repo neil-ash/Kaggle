@@ -50,6 +50,7 @@ Plan:
 
 Notes)
 - will need to split up train and test into separate .py files, too memory intensive for a single file
+- end up w/
 """
 
 
@@ -108,6 +109,7 @@ from sklearn.metrics import accuracy_score
 y_pred = clf.predict(X_val)
 print('\n%.2f' % accuracy_score(y_val, y_pred))
 
+# save trained model
 
 
 

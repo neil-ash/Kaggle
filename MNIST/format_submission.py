@@ -4,7 +4,7 @@ File to go from 1-hot arrays -> digit values
 
 import numpy as np
 
-one_hot = np.load('one-hot_predictions.npy')
+one_hot = np.load('submissions//K-NN//one-hot_predictions.npy')
 
 # translate from 1-hot arrays to digits (index of 1 in array)
 digit = []
@@ -19,5 +19,4 @@ for i in range(one_hot.shape[0]):
 # convert to np array, then save to csv file
 digit = np.asarray(digit)
 np.savetxt('temp_predictions.csv', digit, delimiter=',', fmt='%d')
-
 

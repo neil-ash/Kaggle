@@ -1,5 +1,5 @@
 """"
-Model for the Titanic dataset
+Model for the Titanic dataset (first attempt)
 
 General Plan:
 - determine relevant features

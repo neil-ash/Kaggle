@@ -9,12 +9,12 @@ Plan:
 - include new features
     - include port of embarkation
     - feature crosses?
-        - sibsp + parch
+        - ?? sibsp + parch
             - total amount of family -- no need to differentiate relation
             - remove sibsp, parch
-        - adult man
+        - ?? adult man
             - 1 if male and age > 18, 0 otherwise
-        - very young
+        - ?? very young
             - 1 if age <= 3, 0 otherwise
 - try variety of models
     - logistic regression
@@ -28,6 +28,9 @@ Plan:
     - neural network??
         - too many parameters for dataset
         - single hidden layer?
+- evaluate models on validation set
+    - choose model with best performance on validation
+- then train on both train and validation sets before predicting on test
 
 All data (in column order):
 - PassengerId
@@ -65,16 +68,19 @@ test_df = pd.read_csv('data//test.csv')
 from sklearn.preprocessing import Imputer
 imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
 train_df.Age = imputer.fit_transform(np.asarray(train_df.Age).reshape(-1, 1))
+test_df.Age = imputer.fit_transform(np.asarray(test_df.Age).reshape(-1, 1))
 
 # convert sex values to binary (1 == male, 0 == female)
 from sklearn.preprocessing import LabelEncoder
 labelencoder = LabelEncoder()
 train_df.Sex = labelencoder.fit_transform(train_df.Sex)
+test_df.Sex = labelencoder.fit_transform(test_df.Sex)
 
 
 ##############################################################################################################
 # EXPLORE DATA
 ##############################################################################################################
+'''
 # see total number of passengers
 train_df.PassengerId.iloc[-1]
 
@@ -107,15 +113,13 @@ pd.DataFrame.hist(train_df, column='Age')
 pd.DataFrame.hist(train_df[train_df.Survived == 1], column='Age', bins=16, color='darkgreen')
 pd.DataFrame.hist(train_df[train_df.Survived == 0], column='Age', bins=16, color='darkred')
 
-# proportion of children who survived
+# proportion of children (age <= 5) who survived
 np.sum((train_df[train_df.Age <= 5].Survived == 1).astype(int)) / len((train_df[train_df.Age <= 5]))
 
-# total number of passengers in first, second, and third classes
+# total number of passengers and number who survived in first, second, and third classes
 len(train_df[train_df.Pclass == 1])
 len(train_df[train_df.Pclass == 2])
 len(train_df[train_df.Pclass == 3])
-
-# number of passengers who survived by class: 1, 2, 3
 np.sum((train_df[train_df.Pclass == 1].Survived == 1).astype(int))
 np.sum((train_df[train_df.Pclass == 2].Survived == 1).astype(int))
 np.sum((train_df[train_df.Pclass == 3].Survived == 1).astype(int))
@@ -143,7 +147,6 @@ np.count_nonzero(train_df[train_df.Embarked == 'S'].Survived)
 np.count_nonzero(train_df[train_df.Embarked == 'C'].Survived)
 np.count_nonzero(train_df[train_df.Embarked == 'Q'].Survived)
 
-
 """
 Findings)
 - 891 passengers, 342 survived
@@ -160,8 +163,7 @@ Findings)
 - 491 passengers in third class
     - 119 survived
 
-
-Takeaways)
+Main points)
 General:
 - 38% survived, 62% died
 - 65% male, 35% female
@@ -175,10 +177,87 @@ Survival:
 - SibSp: weak feature
 - Parch: weak feature
 - Fare: decent feature
+    - higher fare == more likely to survive
+- Embarked: decent feature, BUT discrimination explained by other things 
 
-
-
+Relevant Features)
+- Pclass
+- Sex
+- Child
+    - 1 if age <= 5, 0 otherwise
+    - replace age
+- Fare
 """
+'''
+
+
+##############################################################################################################
+# PREPARE FOR TRAINING
+##############################################################################################################
+""" SUPER IMPORTANT: PCLASS IS A CATEGORICAL VARIABLE, NEED TO 1-HOT ENCODE """
+# set Pclass as 2D np array
+Pclass = train_df.Pclass.values.reshape(-1, 1)
+Pclass_ = test_df.Pclass.values.reshape(-1, 1)
+# 1-hot encode
+from sklearn.preprocessing import OneHotEncoder
+onehotencoder = OneHotEncoder()
+Pclass = onehotencoder.fit_transform(Pclass).toarray()
+Pclass_ = onehotencoder.fit_transform(Pclass_).toarray()
+
+# save other features as np arrays for train
+Sex = train_df.Sex.values
+Child = np.asarray([1 if i <= 5 else 0 for i in train_df.Age])
+Fare = train_df.Fare.values
+
+# save features as np arrays for test (includes _)
+Sex_ = test_df.Sex.values
+Child_ = np.asarray([1 if i <= 5 else 0 for i in test_df.Age])
+Fare_ = test_df.Fare.values
+
+# combine features
+X_train = np.hstack((Pclass,
+                     Sex.reshape(-1, 1),
+                     Child.reshape(-1, 1),
+                     Fare.reshape(-1, 1)))
+
+X_test = np.hstack((Pclass,
+                    Sex.reshape(-1, 1),
+                    Child.reshape(-1, 1),
+                    Fare.reshape(-1, 1)))
+
+# get labels
+y_train = train_df.Survived.values
+
+# train/validation split 80/20
+from sklearn.model_selection import train_test_split
+X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=0)
+
+
+##############################################################################################################
+# KERNEL SVM
+##############################################################################################################
+from sklearn.svm import SVC
+clf = SVC(kernel='rbf', C=3000)
+clf.fit(X_train, y_train)
+
+from sklearn.metrics import accuracy_score
+y_pred = clf.predict(X_val)
+print(accuracy_score(y_val, y_pred))
+
+
+##############################################################################################################
+# K-NN
+##############################################################################################################
+from sklearn.neighbors import KNeighborsClassifier
+clf = KNeighborsClassifier(n_neighbors=5)
+clf.fit(X_train, y_train)
+
+y_pred = clf.predict(X_val)
+print(accuracy_score(y_val, y_pred))
+
+
+
+
 
 
 

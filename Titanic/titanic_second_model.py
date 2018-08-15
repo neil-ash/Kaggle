@@ -194,7 +194,7 @@ Relevant Features)
 ##############################################################################################################
 # PREPARE FOR TRAINING
 ##############################################################################################################
-""" SUPER IMPORTANT: PCLASS IS A CATEGORICAL VARIABLE, NEED TO 1-HOT ENCODE """
+""" IMPORTANT: PCLASS IS A CATEGORICAL VARIABLE, NEED TO 1-HOT ENCODE """
 # set Pclass as 2D np array
 Pclass = train_df.Pclass.values.reshape(-1, 1)
 Pclass_ = test_df.Pclass.values.reshape(-1, 1)
@@ -204,15 +204,25 @@ onehotencoder = OneHotEncoder()
 Pclass = onehotencoder.fit_transform(Pclass).toarray()
 Pclass_ = onehotencoder.fit_transform(Pclass_).toarray()
 
+""" IMPORTANT: NORMALIZE FARE """
+# first, replace NaN (blank) values in test
+Fare = train_df.Fare.values
+Fare_ = test_df.Fare.values
+imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
+Fare_ = imputer.fit_transform(np.asarray(Fare_).reshape(-1, 1))
+# now, normalize
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+Fare = scaler.fit_transform(Fare.reshape(-1, 1))
+Fare_ = scaler.fit_transform(Fare_.reshape(-1, 1))
+
 # save other features as np arrays for train
 Sex = train_df.Sex.values
 Child = np.asarray([1 if i <= 5 else 0 for i in train_df.Age])
-Fare = train_df.Fare.values
 
 # save features as np arrays for test (includes _)
 Sex_ = test_df.Sex.values
 Child_ = np.asarray([1 if i <= 5 else 0 for i in test_df.Age])
-Fare_ = test_df.Fare.values
 
 # combine features
 X_train = np.hstack((Pclass,
@@ -220,24 +230,27 @@ X_train = np.hstack((Pclass,
                      Child.reshape(-1, 1),
                      Fare.reshape(-1, 1)))
 
-X_test = np.hstack((Pclass,
-                    Sex.reshape(-1, 1),
-                    Child.reshape(-1, 1),
-                    Fare.reshape(-1, 1)))
+X_test = np.hstack((Pclass_,
+                    Sex_.reshape(-1, 1),
+                    Child_.reshape(-1, 1),
+                    Fare_.reshape(-1, 1)))
 
 # get labels
 y_train = train_df.Survived.values
 
 # train/validation split 80/20
 from sklearn.model_selection import train_test_split
-X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.2, random_state=0)
+X_train, X_val, y_train, y_val = train_test_split(X_train,
+                                                  y_train,
+                                                  test_size=0.2,
+                                                  shuffle=True)
 
 
 ##############################################################################################################
 # KERNEL SVM
 ##############################################################################################################
 from sklearn.svm import SVC
-clf = SVC(kernel='rbf', C=3000)
+clf = SVC(kernel='rbf', C=30)
 clf.fit(X_train, y_train)
 
 from sklearn.metrics import accuracy_score
@@ -248,52 +261,61 @@ print(accuracy_score(y_val, y_pred))
 ##############################################################################################################
 # K-NN
 ##############################################################################################################
-from sklearn.neighbors import KNeighborsClassifier
-clf = KNeighborsClassifier(n_neighbors=5)
+# from sklearn.neighbors import KNeighborsClassifier
+# clf = KNeighborsClassifier(n_neighbors=5)
+# clf.fit(X_train, y_train)
+#
+# y_pred = clf.predict(X_val)
+# print(accuracy_score(y_val, y_pred))
+
+
+###
+'''
+from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score
+
+C_ls = [1, 25, 75, 100]
+
+for C in C_ls:
+
+    X_temp = X_train
+    y_temp = y_train
+    acc_total = 0
+
+    for i in range(1000):
+        X_train, X_val, y_train, y_val = train_test_split(X_temp,
+                                                          y_temp,
+                                                          test_size=0.2,
+                                                          shuffle=True)
+        clf = SVC(kernel='rbf', C=C)
+        clf.fit(X_train, y_train)
+        y_pred = clf.predict(X_val)
+        acc_total += accuracy_score(y_val, y_pred)
+
+    print(C, ':', acc_total / 1000)
+'''
+###
+
+##############################################################################################################
+# PREDICT
+##############################################################################################################
+# train on all data (train + validation)
+X_train = np.vstack((X_train, X_val))
+y_train = np.concatenate((y_train, y_val))
+
+# train
+clf = SVC(kernel='rbf', C=30)
 clf.fit(X_train, y_train)
 
-y_pred = clf.predict(X_val)
-print(accuracy_score(y_val, y_pred))
+# predict on test set
+y_pred = clf.predict(X_test)
+
+np.savetxt('temp_predictions2.csv', y_pred, delimiter=',', fmt='%d')
 
 
 
 
 
-
-
-
-
-'''
-""" take care of missing data """
-# specify a value as missing if it is NaN, replace with mean, do WRT columns
-from sklearn.preprocessing import Imputer
-imputer = Imputer(missing_values='NaN', strategy='mean', axis=0)
-imputer = imputer.fit(X[:, 1:])                             # fit() to learn
-X[:, 1:] = imputer.transform(X[:, 1:])                      # transform() to apply
-
-""" encode categorical data """
-# by default, LabelEncoder does not encode as 1-hot array
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder
-labelencoder_X = LabelEncoder()
-X[:, 0] = labelencoder_X.fit_transform(X[:, 0])
-# need to use 1-hot, specify first column of X
-onehotencoder = OneHotEncoder(categorical_features=[0])
-X = onehotencoder.fit_transform(X).toarray()
-# also encode labels y
-labelencoder_y = LabelEncoder()
-y = labelencoder_y.fit_transform(y)
-
-""" train/test split """
-from sklearn.model_selection import train_test_split
-# keep track of order, 20% of data as test, random state to get reproducible results, defaults to shuffle=True
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-
-""" feature scaling """
-from sklearn.preprocessing import StandardScaler
-sc_X = StandardScaler()
-X_train = sc_X.fit_transform(X_train)
-# already fitted, can just transform
-X_test = sc_X.transform(X_test)
-'''
 
 

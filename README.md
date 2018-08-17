@@ -9,4 +9,4 @@ Starting out on Kaggle -- here are my first few competitions!
   - Accuracy of 96%
   ###
   ### Amazon: predict when to given employees access to specific company resources
-- May be unable to complete due to lack of computing power (no GPU)
+  - In progress!

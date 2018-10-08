@@ -10,3 +10,5 @@ Starting out on Kaggle -- here are my first few competitions!
   ###
   ### Amazon: predict when to given employees access to specific company resources
   - In progress!
+  ### Kobe: predict if Kobe Bryant will make the basket given given historical data
+  - In progress!
